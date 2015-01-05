@@ -1,0 +1,660 @@
+#include<reg51.h>
+#include<stdio.h>
+#include<intrins.h>
+#include "LCM16X2P.H"
+#define LCM_DB P2
+#define uchar unsigned char
+
+sbit LCM_RS = P1^0; //1602的数据/指令选择控制线 
+sbit LCM_RW = P1^1;	//1602的读写控制线 
+sbit LCM_E = P1^2;  //1602的使能控制线
+sbit LCM_BLC = P1^3;
+sbit DIN = P1^4;
+sbit SCK = P1^5;
+sbit CS = P1^6;
+
+sbit S0 = P0^0;
+sbit S1 = P0^1;
+sbit S2 = P0^2;
+sbit S3 = P0^3;
+sbit S4 = P0^4;
+
+unsigned int data DelayConst = 100; //设定延时
+
+void pre();
+void pre1();
+void pre2();
+void pre3();
+void pre4();
+void pre5();
+void write_com(uchar com);
+void write_data(uchar date);
+void  displaypage();
+void  displaypage1();
+void  displaypage2();
+void  displaypage3();
+void  displaypage4();
+void  displaypage5();
+void DAConvert(unsigned int da);
+void fangbo();
+void sanjiaobo();
+void juchibo();
+void tixingbo();
+void sine();
+
+uchar code table1 [] = {0x10,0x0B,0x02,0x18,0x00,0x00,0x09,0x12};
+uchar code table2 [] = {0x10,0x1C,0x14,0x10,0x10,0x10,0x12,0x1E};//沈
+uchar code table3 [] = {0x02,0x04,0x08,0x1F,0x0A,0x04,0x0A,0x11};
+uchar code table4 [] = {0x04,0x1F,0x04,0x1F,0x11,0x0E,0x04,0x0C};//婷
+uchar code table5 [] = {0x02,0x04,0x08,0x1F,0x0A,0x04,0x0A,0x11};
+uchar code table6 [] = {0x04,0x1F,0x04,0x1F,0x11,0x0E,0x04,0x0C};//婷
+uchar code table7 [] = {0x01,0x07,0x01,0x01,0x02,0x04,0x08,0x00};
+uchar code table8 [] = {0x00,0x1C,0x00,0x1C,0x04,0x04,0x0C,0x00};//方
+uchar code table9 [] = {0x10,0x0B,0x02,0x1A,0x02,0x02,0x0A,0x14};
+uchar code table10 [] =	{0x08,0x1F,0x09,0x1C,0x14,0x08,0x14,0x02};//波
+uchar code table11 [] =	{0x00,0x07,0x00,0x03,0x00,0x0F,0x00,0x00};
+uchar code table12 [] =	{0x00,0x1C,0x00,0x18,0x00,0x1E,0x00,0x00};//三
+uchar code table13 [] =	{0x03,0x04,0x07,0x05,0x07,0x05,0x07,0x0D};
+uchar code table14 [] =	{0x1E,0x04,0x1C,0x04,0x1C,0x04,0x1C,0x04};//角
+uchar code table15 [] =	{0x08,0x0E,0x10,0x0E,0x04,0x0E,0x04,0x06};
+uchar code table16 [] =	{0x1F,0x11,0x1F,0x12,0x17,0x12,0x17,0x17};//锯
+uchar code table17 [] =	{0x01,0x05,0x0F,0x01,0x01,0x0B,0x08,0x0F};
+uchar code table18 [] =	{0x18,0x00,0x1C,0x00,0x10,0x08,0x04,0x1C};//齿
+uchar code table19 [] =	{0x00,0x04,0x1F,0x04,0x0E,0x15,0x04,0x00};
+uchar code table20 [] =	{0x04,0x1F,0x05,0x1F,0x14,0x1F,0x0D,0x15};//梯
+uchar code table21 [] =	{0x00,0x1F,0x0A,0x1F,0x0A,0x0A,0x0A,0x12};
+uchar code table22 [] =	{0x02,0x04,0x08,0x02,0x04,0x08,0x02,0x0C};//形
+uchar code table23 [] =	{0x1F,0x01,0x01,0x09,0x09,0x09,0x09,0x1F};
+uchar code table24 [] =	{0x1F,0x00,0x00,0x1E,0x00,0x00,0x00,0x1F};//正
+uchar code table25 [] =	{0x1C,0x05,0x1C,0x11,0x1C,0x05,0x14,0x0D};
+uchar code table26 [] = {0x08,0x1E,0x08,0x12,0x0C,0x08,0x12,0x1F};//弦
+
+unsigned char code type[]={	 									  //正弦波采样点
+0x80,0x83,0x86,0x89,0x8c,0x90,0x93,0x96,0x99,0x9c,0x9f,0xa2,0xa5,0xa8,0xab,
+0xae,0xb1,0xb3,0xb6,0xb9,
+0xbc,0xbf,0xc1,0xc4,0xc7,0xc9,0xcc,0xce,0xd1,0xd3,0xd5,0xd8,0xda,0xdc,0xde,
+0xe0,0xe2,0xe4,0xe6,0xe8,
+0xea,0xeb,0xed,0xef,0xf0,0xf1,0xf3,0xf4,0xf5,0xf6,0xf8,0xf9,0xfa,0xfa,0xfb,
+0xfc,0xfd,0xfd,0xfe,0xfe,
+0xfe,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xfe,0xfe,0xfe,0xfd,0xfd,0xfc,0xfb,
+0xfa,0xfa,0xf9,0xf8,0xf6,
+0xf5,0xf4,0xf3,0xf1,0xf0,0xef,0xed,0xeb,0xea,0xe8,0xe6,0xe4,0xe2,0xe0,0xde,
+0xdc,0xda,0xd8,0xd5,0xd3,
+0xd1,0xce,0xcc,0xc9,0xc7,0xc4,0xc1,0xbf,0xbc,0xb9,0xb6,0xb3,0xb1,0xae,0xab,
+0xa8,0xa5,0xa2,0x9f,0x9c,
+0x99,0x96,0x93,0x90,0x8c,0x89,0x86,0x83,0x80,0x7d,0x7a,0x77,0x74,0x70,0x6d,
+0x6a,0x67,0x64,0x61,0x5e,
+0x5b,0x58,0x55,0x52,0x4f,0x4d,0x4a,0x47,0x44,0x41,0x3f,0x3c,0x39,0x37,0x34,
+0x32,0x2f,0x2d,0x2b,0x28,
+0x26,0x24,0x22,0x20,0x1e,0x1c,0x1a,0x18,0x16,0x15,0x13,0x11,0x10,0x0f,0x0d,
+0x0c,0x0b,0x0a,0x08,0x07,
+0x06,0x06,0x05,0x04,0x03,0x03,0x02,0x02,0x02,0x01,0x01,0x00,0x00,0x00,0x01,
+0x01,0x02,0x02,0x02,0x03,
+0x03,0x04,0x05,0x06,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x0d,0x0f,0x10,0x11,0x13,
+0x15,0x16,0x18,0x1a,0x1c,
+0x1e,0x20,0x22,0x24,0x26,0x28,0x2b,0x2d,0x2f,0x32,0x34,0x37,0x39,0x3c,0x3f,
+0x41,0x44,0x47,0x4a,0x4d,
+0x4f,0x52,0x55,0x58,0x5b,0x5e,0x61,0x64,0x67,0x6a,0x6d,0x70,0x74,0x77,0x7a,
+0x7d};
+
+void main(void)
+{	
+	LCMInit();  //初始化LCM
+	LCMClear();	//清屏
+
+	while(1)
+	{	
+		switch (P0)
+		{
+	 		case 0x01: fangbo();break;
+	 		case 0x03: sanjiaobo();break;
+	 		case 0x07: juchibo();break;
+         	case 0x0F: tixingbo();break;
+ 	 		case 0x1F: sine();break;
+			default: displaypage();break;
+		}
+	}
+}	
+
+void DAConvert(unsigned int da)
+{
+	int i;
+	da<<=2;
+	da &=0xFFC;
+	SCK=0;
+	CS=0;
+
+	for(i=0;i<12;i++)
+	{
+		if(da &0x800) DIN=1;
+		else DIN=0;
+		SCK=1;
+		SCK=0;
+		da<<=1;
+	}
+	CS=1;
+	SCK=1;
+	DIN=1;
+}
+
+void fangbo()
+{
+	unsigned int i;
+	LCMClear();	//清屏
+	displaypage1();	
+	for(i = 0;i < 5;i++)
+	{				
+	    DAConvert(640);
+		LCMDelay(100000);
+		DAConvert(0);
+		LCMDelay(100000);	
+    }
+}
+
+void sanjiaobo()
+{	unsigned int i,a;	
+	LCMClear();	//清屏
+	displaypage2();
+	for(a=0;a<5;a+=1)
+	{ 
+	for(i=0;i<640;i+=1)
+			{
+			DAConvert(i);
+			}
+	for(i=640;i>0;i-=1)
+			{
+			DAConvert(i);	
+			}
+	} 
+}
+
+void juchibo()
+{	unsigned int i,a;
+	LCMClear();	//清屏
+	displaypage3();
+	for(a=0;a<5;a+=1)
+	{ 	
+	for(i=0;i<640;i+=1)
+			{
+			DAConvert(i);
+			}
+	}
+}	
+
+void tixingbo()
+{	unsigned int i;
+	LCMClear();	//清屏
+	displaypage4();
+	for(i=0;i<640;i+=1)
+			{
+			DAConvert(i);
+			}
+			DAConvert(640);
+			LCMDelay(100);
+		 	for(i=640;i>1;i-=1)
+			{
+			DAConvert(i);
+					}		
+	}
+	
+
+void sine()
+{ 	
+	static unsigned int i,a;
+	LCMClear();	//清屏
+	displaypage5();
+	for(a=0;a<5;a+=1)
+	{ 	
+    for(i = 0; i < 128; i++)
+	{
+	    DAConvert(type[i]);
+	}
+	 for(i = 128; i <260; i++)
+	{
+	    DAConvert(type[i]);
+	}		
+	}	
+}
+	 
+void displaypage() //displaypage函数,显示名字学号
+{
+	LCMClear();
+	pre();
+	write_com(0x80);
+	write_data(0x00);
+	write_data(0x01);
+	LCMDelay(100);
+	write_data(0x02);
+	write_data(0x03);
+	LCMDelay(100);
+	write_data(0x04);
+	write_data(0x05);
+	LCMDisplayString(1,0,"208120604");
+	LCMDelay(100);
+}
+
+void displaypage1() //displaypage1函数,显示方波
+{
+	LCMClear();
+	pre1();
+	write_com(0x80);
+	write_data(0x00);
+	write_data(0x01);
+	LCMDelay(1);
+	write_data(0x02);
+	write_data(0x03);
+	LCMDelay(1);
+}
+
+void displaypage2() //displaypage2函数,显示三角波
+{
+	LCMClear();
+	pre2();
+	write_com(0x80);
+	write_data(0x00);
+	write_data(0x01);
+	LCMDelay(1);
+	write_data(0x02);
+	write_data(0x03);
+	LCMDelay(1);
+	write_data(0x04);
+	write_data(0x05);
+	LCMDelay(1);
+}
+
+void displaypage3() //displaypage1函数,显示锯齿波
+{
+	LCMClear();
+	pre3();
+	write_com(0x80);
+	write_data(0x00);
+	write_data(0x01);
+	LCMDelay(1);
+	write_data(0x02);
+	write_data(0x03);
+	LCMDelay(1);
+	write_data(0x04);
+	write_data(0x05);
+	LCMDelay(1);
+}
+
+void displaypage4() //displaypage4函数,显示梯形波
+{
+	LCMClear();
+	pre4();
+	write_com(0x80);
+	write_data(0x00);
+	write_data(0x01);
+	LCMDelay(1);
+	write_data(0x02);
+	write_data(0x03);
+	LCMDelay(1);
+	write_data(0x04);
+	write_data(0x05);
+	LCMDelay(1);
+}
+
+void displaypage5() //displaypage5函数,显示正弦波
+{
+	LCMClear();
+	pre5();
+	write_com(0x80);
+	write_data(0x00);
+	write_data(0x01);
+	LCMDelay(1);
+	write_data(0x02);
+	write_data(0x03);
+	LCMDelay(1);
+	write_data(0x04);
+	write_data(0x05);
+	LCMDelay(1);
+}
+
+ void write_com(uchar com) //写字符
+{
+	LCM_RS=0;
+	P2=com;
+	LCMDelay(5);
+	LCM_E=1;
+	LCMDelay(5);
+	LCM_E=0;
+}
+
+void write_data(uchar date) //写数据
+{
+	LCM_RS=1;
+	P2=date;
+	LCMDelay(5);
+	LCM_E=1;
+	LCMDelay(5);
+	LCM_E=0;
+}
+
+void LCMDelay(int ms)	 //通过循环的方式延时
+{
+	unsigned int i,cnt;
+	cnt = DelayConst * ms;
+	for(i=0;i<cnt;i++);
+}
+
+unsigned char LCMReadState(void) //查询LCM的忙标志/当前AC的地址
+{
+	unsigned char state;
+	LCM_E = 0;
+	LCM_RS = 0;
+	LCM_RW = 1;
+	LCM_E = 1;
+	_nop_();
+	_nop_();
+	state = LCM_DB;
+	LCM_E = 0;
+	return state;
+}
+
+void LCMClear(void)	//清屏
+{
+	LCMDelay(1);
+	LCM_E = 0;
+	LCM_RS = 0;
+	LCM_RW = 0;
+	LCM_DB = 0x01;
+	LCM_E = 1;
+	_nop_();
+	_nop_();
+	LCM_E = 0;
+	LCMDelay(1);
+}
+
+void LCMWriteCmd(unsigned char cmd) //向LCM写入控制字
+{
+	LCMDelay(1);
+	LCM_E = 0;
+	LCM_RS = 0;
+	LCM_RW = 0;
+	LCM_DB = cmd;
+	LCM_E = 1;
+	_nop_();
+	_nop_();
+	LCM_E = 0;
+}
+
+void LCMWriteData(unsigned char dc)	 //向LCM写入数据
+{	
+	while(LCMReadState() & BUSYFLAG);
+	LCM_RS = 1;
+	LCM_RW = 0;
+	LCM_DB = dc;
+	LCM_E = 1;
+	_nop_();
+	_nop_();
+	LCM_E = 0;
+}
+
+void LCMInit(void) //初始化LCM
+{
+	LCMDelay(60);
+	 LCM_BLC = 0;
+	LCMWriteCmd(0x38);
+	LCMDelay(5);
+	LCMWriteCmd(0x38);
+	LCMDelay(1);
+	LCMWriteCmd(0x38);
+	while(LCMReadState() & BUSYFLAG);
+	LCMWriteCmd(0x08);
+	while(LCMReadState() & BUSYFLAG);
+	LCMWriteCmd(0x01);
+	while(LCMReadState() & BUSYFLAG);
+	LCMWriteCmd(0x06);
+	while(LCMReadState() & BUSYFLAG);
+	LCMWriteCmd(0x0e);
+	while(LCMReadState() & BUSYFLAG);
+	pre();
+}
+
+void LCMGOtoXY(unsigned char x,unsigned char y)	//移动光标到X行，Y列
+{
+	unsigned char cmd;
+	if(x==0)
+	{
+		cmd=0x80|y;
+	}
+	else
+	{
+		cmd=0x80|0x40|y;
+	}
+	LCMWriteCmd(cmd);
+	while(LCMReadState()&BUSYFLAG);
+}
+
+void LCMDisplayChar(unsigned char x,unsigned char y,unsigned char ch) 
+//在指定的位置显示一个字符
+{
+	LCMGotoXY(x,y);
+	LCMWriteData(ch);
+}
+
+void LCMDisplayString(unsigned char x,unsigned char y,unsigned char * str)
+{	
+	unsigned char ptr;
+	ptr = 0;
+	while(*(str+ptr) != 0)
+	{	
+		LCMDisplayChar(x,(y+ptr),*(str+ptr));
+		ptr++;
+		LCMDelay(1000);
+	}
+}
+
+void LCMBlink(unsigned char x,unsigned char y,unsigned char cmd) 
+//将指定位置显示的字符闪烁（同时关闭光标）
+{	
+	LCMGotoXY(x,y);
+	if(cmd == BLINK)
+	{
+		LCMWriteCmd(0x0d);
+	}
+	else
+	{	
+		LCMWriteCmd(0x0c);
+	}
+}
+
+void pre() //写入名字学号
+{
+	uchar i;
+	write_com(0x40);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table1[i]);
+	}
+	write_com(0x48);
+	for(i=0;i<8;i++)
+	{
+		write_data(table2[i]);
+	}
+	write_com(0x48+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table3[i]);
+	}
+	write_com(0x48+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table4[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table5[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table6[i]);
+	}
+}
+
+void pre1() //写入方波
+{
+	uchar i;
+	write_com(0x40);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table7[i]);
+	}
+	write_com(0x48);
+	for(i=0;i<8;i++)
+	{
+		write_data(table8[i]);
+	}
+	write_com(0x48+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table9[i]);
+	}
+	write_com(0x48+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table10[i]);
+	}
+}
+
+void pre2() //写入三角波
+{
+	uchar i;
+	write_com(0x40);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table11[i]);
+	}
+	write_com(0x48);
+	for(i=0;i<8;i++)
+	{
+		write_data(table12[i]);
+	}
+	write_com(0x48+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table13[i]);
+	}
+	write_com(0x48+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table14[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table9[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table10[i]);
+	}
+}
+
+void pre3() //写入锯齿波
+{
+	uchar i;
+	write_com(0x40);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table15[i]);
+	}
+	write_com(0x48);
+	for(i=0;i<8;i++)
+	{
+		write_data(table16[i]);
+	}
+	write_com(0x48+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table17[i]);
+	}
+	write_com(0x48+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table18[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table9[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table10[i]);
+	}
+}
+
+void pre4() //写入梯形波
+{
+	uchar i;
+	write_com(0x40);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table19[i]);
+	}
+	write_com(0x48);
+	for(i=0;i<8;i++)
+	{
+		write_data(table20[i]);
+	}
+	write_com(0x48+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table21[i]);
+	}
+	write_com(0x48+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table22[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table9[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table10[i]);
+	}
+}
+
+void pre5() //写入正弦波
+{
+	uchar i;
+	write_com(0x40);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table23[i]);
+	}
+	write_com(0x48);
+	for(i=0;i<8;i++)
+	{
+		write_data(table24[i]);
+	}
+	write_com(0x48+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table25[i]);
+	}
+	write_com(0x48+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table26[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table9[i]);
+	}
+	write_com(0x48+0x08+0x08+0x08+0x08);
+	for(i=0;i<8;i++)
+	{	
+		write_data(table10[i]);
+	}
+}
