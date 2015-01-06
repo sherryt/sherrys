@@ -1,0 +1,110 @@
+library ieee;    --控制器
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+entity ftctrl is
+    port (	clkk : in std_logic;                 
+        	cnt_en : out std_logic;                 
+       	rst_cnt : out std_logic;                 
+         	load : out std_logic    );              
+ end ftctrl;
+
+architecture behav of ftctrl is
+signal div2clk : std_logic;
+begin
+ process( clkk )
+	begin
+		if clkk'event and clkk = '1' then
+            			div2clk <= not div2clk;
+        		end if;
+	end process;
+
+	process (clkk, div2clk)
+	begin
+		if clkk='0' and div2clk='0' then 
+			rst_cnt<='1';
+          		else   rst_cnt <= '0';  
+		end if;
+	end process;
+	load  <= not div2clk;    
+	cnt_en <= div2clk;
+end behav; 
+
+library ieee;  --32位锁存器
+use ieee.std_logic_1164.all;
+
+entity reg32b is
+    port (	lk : in std_logic;
+	din : in std_logic_vector(31 downto 0);
+ 	dout : out std_logic_vector(31 downto 0) );
+end reg32b;
+
+architecture behav of reg32b is
+begin
+	process(lk, din)
+	begin
+		if lk'event and lk = '1' then  
+			dout <= din;
+		end if;
+	end process;
+end behav;
+
+library ieee;  --32位计数器
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+entity counter32b is
+port (	fin : in std_logic;                           
+	clr : in std_logic;
+	enabl : in std_logic;                            
+	dout :  out std_logic_vector(31 downto 0)); 
+end counter32b;
+architecture behav of counter32b is
+signal cqi :  std_logic_vector(31 downto 0);
+begin
+	process(fin, clr, enabl)
+	begin
+		if clr = '1' then   cqi <= (others=>'0');             
+		elsif fin'event and fin = '1' then
+			if enabl = '1' then cqi <= cqi + 1; end if;
+		end if;
+	end process;
+	dout <= cqi;
+end behav;
+
+library ieee;  --频率计顶层文件
+use ieee.std_logic_1164.all;
+entity freqtest is
+port (	clk1hz : in std_logic;  
+ 	fsin : in std_logic;
+ 	dout : out std_logic_vector(31 downto 0) );
+end freqtest;
+architecture struc of freqtest is
+component ftctrl
+port (	clkk : in std_logic;               
+        	cnt_en : out std_logic;
+       	rst_cnt : out std_logic;
+         	load : out std_logic    );             
+ end component;
+component counter32b 
+    port (	fin : in std_logic;                  
+          	clr : in std_logic;                    
+        	enabl : in std_logic;                 
+         	dout :  out std_logic_vector(31 downto 0));
+end component; 
+component reg32b
+	port (	lk : in std_logic;
+ 		din : in std_logic_vector(31 downto 0);
+ 		dout : out std_logic_vector(31 downto 0) );
+end component;
+ 	signal tsten1 : std_logic;
+ 	signal clr_cnt1 : std_logic;
+ 	signal load1 : std_logic;
+ 	signal dto1 : std_logic_vector(31 downto 0);
+ 	signal carry_out1 : std_logic_vector(6 downto 0);
+	begin
+ 		u1:ftctrl port map(	clkk =>clk1hz,cnt_en=>tsten1,
+				rst_cnt =>clr_cnt1,load =>load1);
+		u2:reg32b port map(  lk => load1,   din=>dto1, dout => dout);
+		u3 :counter32b port map( 	fin => fsin, clr => clr_cnt1,
+ 					enabl => tsten1, dout=>dto1 );
+	end struc;
